@@ -11,7 +11,7 @@ let sock = null;
 let latestQr = null;
 
 async function connectToWhatsApp() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_ultimate');
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_ultimate_v2');
     
     sock = makeWASocket({
         auth: state,
@@ -28,14 +28,15 @@ async function connectToWhatsApp() {
         
         if (qr) {
             latestQr = qr;
+            console.log("New QR Code generated");
         }
 
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut);
             console.log('Reconnecting...', shouldReconnect);
-            if (shouldReconnect) connectToWhatsApp();
+            if (shouldReconnect) setTimeout(connectToWhatsApp, 5000);
         } else if (connection === 'open') {
-            console.log('SUCCESS: Connected to WhatsApp!');
+            console.log('Connected successfully!');
             latestQr = null;
         }
     });
@@ -61,11 +62,6 @@ async function connectToWhatsApp() {
                     message_text: textMessage
                 })
             });
-
-            const result = await response.json();
-            if (result.success && result.parsed && result.parsed.ai_response) {
-                await sock.sendMessage(msg.key.remoteJid, { text: result.parsed.ai_response });
-            }
         } catch (error) {
             console.error('Error:', error.message);
         }
@@ -84,15 +80,13 @@ app.get('/api/get-pairing-code', async (req, res) => {
 });
 
 app.get('/api/get-qr', (req, res) => {
-    if (!latestQr) {
-        return res.status(404).json({ error: "No QR available" });
-    }
+    if (!latestQr) return res.status(404).json({ error: "No QR available, please wait 30 seconds and refresh" });
     const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQr)}`;
     return res.send(`<img src="${qrImageUrl}" />`);
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server started on port ${PORT}`);
     connectToWhatsApp();
 });
