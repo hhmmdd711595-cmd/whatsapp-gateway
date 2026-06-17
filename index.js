@@ -11,7 +11,7 @@ let sock = null;
 let latestQr = null;
 
 async function connectToWhatsApp() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_v3_fresh');
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_ultimate');
     
     sock = makeWASocket({
         auth: state,
