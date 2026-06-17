@@ -10,7 +10,7 @@ const CLOUDFLARE_WORKER_URL = "https://pulseops-ai.hhmmdd711595.workers.dev/api/
 let sock = null;
 
 async function connectToWhatsApp() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_v2');
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_final_clean');
     
     sock = makeWASocket({
         auth: state,
@@ -20,14 +20,39 @@ async function connectToWhatsApp() {
 
     sock.ev.on('creds.update', saveCreds);
 
+    if (!sock.authState.creds.registered) {
+        setTimeout(async () => {
+            console.log("\n=============================================");
+            console.log("Generating pairing codes in 3 formats...");
+            console.log("=============================================\n");
+            
+            try {
+                let code1 = await sock.requestPairingCode("967713466475");
+                console.log(`CODE 1 (967): ${code1}`);
+            } catch (e) { console.log(`Error 1: ${e.message}`); }
+
+            try {
+                let code2 = await sock.requestPairingCode("713466475");
+                console.log(`CODE 2 (No prefix): ${code2}`);
+            } catch (e) { console.log(`Error 2: ${e.message}`); }
+
+            try {
+                let code3 = await sock.requestPairingCode("9670713466475");
+                console.log(`CODE 3 (With zero): ${code3}`);
+            } catch (e) { console.log(`Error 3: ${e.message}`); }
+            
+            console.log("\n=============================================");
+        }, 7000);
+    }
+
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut);
-            console.log('🔄 Reconnecting...', shouldReconnect);
+            console.log('Reconnecting...', shouldReconnect);
             if (shouldReconnect) connectToWhatsApp();
         } else if (connection === 'open') {
-            console.log('✅ [SUCCESS] Connected to WhatsApp!');
+            console.log('SUCCESS: Connected to WhatsApp!');
         }
     });
 
@@ -58,25 +83,14 @@ async function connectToWhatsApp() {
                 await sock.sendMessage(msg.key.remoteJid, { text: result.parsed.ai_response });
             }
         } catch (error) {
-            console.error('❌ Error:', error.message);
+            console.error('Error:', error.message);
         }
     });
 }
 
-app.get('/api/get-pairing-code', async (req, res) => {
-    const phoneNumber = req.query.phone; 
-    if (!phoneNumber) return res.status(400).json({ error: 'Missing phone' });
-    try {
-        if (!sock) return res.status(500).json({ error: 'Server initializing' });
-        let code = await sock.requestPairingCode(phoneNumber);
-        return res.json({ success: true, pairing_code: code });
-    } catch (err) {
-        return res.status(500).json({ error: err.message });
-    }
-});
-
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🌐 Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
     connectToWhatsApp();
 });
+
