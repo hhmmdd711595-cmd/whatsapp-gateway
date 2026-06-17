@@ -8,26 +8,33 @@ app.use(express.json());
 const CLOUDFLARE_WORKER_URL = "https://pulseops-ai.hhmmdd711595.workers.dev/api/message/incoming";
 
 let sock = null;
+let latestQr = null;
 
 async function connectToWhatsApp() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_final_clean');
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_v3_fresh');
     
     sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true,
+        printQRInTerminal: false,
         logger: pino({ level: 'silent' })
     });
 
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update;
+        
+        if (qr) {
+            latestQr = qr;
+        }
+
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut);
             console.log('Reconnecting...', shouldReconnect);
             if (shouldReconnect) connectToWhatsApp();
         } else if (connection === 'open') {
             console.log('SUCCESS: Connected to WhatsApp!');
+            latestQr = null;
         }
     });
 
@@ -62,6 +69,25 @@ async function connectToWhatsApp() {
         }
     });
 }
+
+app.get('/api/get-pairing-code', async (req, res) => {
+    const phoneNumber = req.query.phone || "967713466475"; 
+    try {
+        if (!sock) return res.status(500).json({ error: 'Server initializing' });
+        let code = await sock.requestPairingCode(phoneNumber);
+        return res.json({ success: true, pairing_code: code });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/get-qr', (req, res) => {
+    if (!latestQr) {
+        return res.status(404).json({ error: "No QR available" });
+    }
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQr)}`;
+    return res.send(`<img src="${qrImageUrl}" />`);
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
