@@ -14,36 +14,11 @@ async function connectToWhatsApp() {
     
     sock = makeWASocket({
         auth: state,
-        printQRInTerminal: false,
+        printQRInTerminal: true,
         logger: pino({ level: 'silent' })
     });
 
     sock.ev.on('creds.update', saveCreds);
-
-    if (!sock.authState.creds.registered) {
-        setTimeout(async () => {
-            console.log("\n=============================================");
-            console.log("Generating pairing codes in 3 formats...");
-            console.log("=============================================\n");
-            
-            try {
-                let code1 = await sock.requestPairingCode("967713466475");
-                console.log(`CODE 1 (967): ${code1}`);
-            } catch (e) { console.log(`Error 1: ${e.message}`); }
-
-            try {
-                let code2 = await sock.requestPairingCode("713466475");
-                console.log(`CODE 2 (No prefix): ${code2}`);
-            } catch (e) { console.log(`Error 2: ${e.message}`); }
-
-            try {
-                let code3 = await sock.requestPairingCode("9670713466475");
-                console.log(`CODE 3 (With zero): ${code3}`);
-            } catch (e) { console.log(`Error 3: ${e.message}`); }
-            
-            console.log("\n=============================================");
-        }, 7000);
-    }
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
@@ -93,4 +68,3 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     connectToWhatsApp();
 });
-
