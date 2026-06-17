@@ -10,7 +10,7 @@ const CLOUDFLARE_WORKER_URL = "https://pulseops-ai.hhmmdd711595.workers.dev/api/
 let sock = null;
 
 async function connectToWhatsApp() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_v2');
     
     sock = makeWASocket({
         auth: state,
